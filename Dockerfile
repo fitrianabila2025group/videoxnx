@@ -23,7 +23,6 @@ WORKDIR /app
 COPY --from=build /out/server /app/server
 RUN mkdir -p /app/data && chown -R app:app /app/data
 USER app
-VOLUME ["/app/data"]
 EXPOSE 8080
 ENV PORT=8080 \
     DATA_DIR=/app/data \
