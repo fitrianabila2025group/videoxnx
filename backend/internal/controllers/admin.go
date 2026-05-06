@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/fitrianabila2025group/videoxnx/backend/internal/config"
@@ -87,8 +88,8 @@ func (a *Admin) ListPosts(c *fiber.Ctx) error {
 		q = q.Where("safety_status = ?", s)
 	}
 	if s := c.Query("q"); s != "" {
-		like := "%" + s + "%"
-		q = q.Where("title ILIKE ? OR slug ILIKE ?", like, like)
+		like := "%" + strings.ToLower(s) + "%"
+		q = q.Where("LOWER(title) LIKE ? OR LOWER(slug) LIKE ?", like, like)
 	}
 	var total int64
 	q.Count(&total)

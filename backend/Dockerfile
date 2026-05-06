@@ -11,7 +11,11 @@ FROM alpine:3.20
 RUN apk add --no-cache ca-certificates tzdata && adduser -D -u 10001 app
 WORKDIR /app
 COPY --from=build /out/server /app/server
+RUN mkdir -p /app/data && chown -R app:app /app/data
 USER app
+VOLUME ["/app/data"]
 EXPOSE 8080
-ENV PORT=8080
+ENV PORT=8080 \
+    DATA_DIR=/app/data \
+    DATABASE_URL=sqlite:///app/data/videoxnx.db
 CMD ["/app/server"]

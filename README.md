@@ -236,13 +236,17 @@ PUT    /api/admin/settings
 ### Railway
 
 Each service has its own `railway.json` so Railway will auto-detect the Dockerfile.
+**No external database needed** — the backend ships with an embedded SQLite database
+(persisted in a Railway Volume). Switch to Postgres later by setting `DATABASE_URL`
+to a `postgres://...` URL.
 
 1. Push this repo to GitHub.
-2. In Railway create a new project from the repo and add **Postgres** plugin.
+2. In Railway create a new project from the repo.
 3. Add three services from the same repo with these **Root Directory** settings:
-   - `backend/` — set vars from `.env.example` plus `DATABASE_URL` (from Postgres plugin),
-     `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `SCRAPER_FETCHER_URL=http://${{fetcher.RAILWAY_PRIVATE_DOMAIN}}:9090`,
+   - `backend/` — set vars: `JWT_SECRET=<random>`, `ADMIN_EMAIL=...`, `ADMIN_PASSWORD=...`,
+     `SCRAPER_FETCHER_URL=http://${{fetcher.RAILWAY_PRIVATE_DOMAIN}}:9090`,
      `CORS_ALLOWED_ORIGINS=https://<frontend-domain>`. Generate a public domain.
+     Attach a **Volume** mounted at `/app/data` so the SQLite file survives redeploys.
    - `fetcher/` — no extra env. Internal port 9090. (Don't expose publicly.)
    - `frontend/` — set `NEXT_PUBLIC_API_URL=https://<backend-domain>` as a **Build & Deploy variable**.
      Generate a public domain.
