@@ -1,0 +1,76 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: videoxnx
+      POSTGRES_PASSWORD: videoxnx
+      POSTGRES_DB: videoxnx
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U videoxnx"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  fetcher:
+    build:
+      context: ./fetcher
+    shm_size: "1gb"
+    environment:
+      PORT: "9090"
+    ports:
+      - "9090:9090"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:9090/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  backend:
+    build:
+      context: ./backend
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgres://videoxnx:videoxnx@postgres:5432/videoxnx?sslmode=disable
+      REDIS_URL: redis://redis:6379/0
+      SCRAPER_FETCHER_URL: http://fetcher:9090
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      fetcher:
+        condition: service_started
+    ports:
+      - "8080:8080"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: http://backend:8080
+        NEXT_PUBLIC_SITE_URL: ${SITE_URL:-http://localhost:3000}
+        NEXT_PUBLIC_DMCA_EMAIL: ${DMCA_EMAIL}
+    environment:
+      NEXT_PUBLIC_API_URL: http://backend:8080
+      NEXT_PUBLIC_SITE_URL: ${SITE_URL:-http://localhost:3000}
+      NEXT_PUBLIC_DMCA_EMAIL: ${DMCA_EMAIL}
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:

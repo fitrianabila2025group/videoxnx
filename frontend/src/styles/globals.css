@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: dark; }
+html, body { background: #0b0b10; color: #e8e8ea; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body { -webkit-tap-highlight-color: transparent; overflow-x: hidden; }
+img, video { max-width: 100%; height: auto; }
+a { color: inherit; text-decoration: none; }
+
+.card { @apply bg-panel rounded-xl overflow-hidden border border-white/5 hover:border-brand/40 transition-colors; }
+.chip { @apply inline-flex items-center px-2.5 py-1 rounded-full bg-muted text-sub text-xs hover:text-ink hover:bg-brand/20 transition-colors; }
+.btn { @apply inline-flex items-center justify-center px-4 py-2 rounded-lg bg-brand text-white font-medium hover:opacity-90 transition; }
+.btn-ghost { @apply inline-flex items-center justify-center px-3 py-2 rounded-lg bg-muted text-ink hover:bg-white/10 transition; }
+.input { @apply w-full bg-muted border border-white/5 rounded-lg px-3 sm:px-4 py-2 text-ink text-sm sm:text-base focus:outline-none focus:border-brand; }
+.skeleton { @apply animate-pulse bg-muted rounded; }
+
+/* Smaller font on phones for the body text */
+@media (max-width: 640px) {
+  h1 { font-size: 1.5rem; line-height: 2rem; }
+  h2 { font-size: 1.25rem; line-height: 1.75rem; }
+}

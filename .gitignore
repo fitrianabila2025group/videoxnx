@@ -1,0 +1,15 @@
+node_modules
+.next
+dist
+build
+.env
+.env.local
+*.log
+backend/bin
+backend/tmp
+.DS_Store
+.idea
+.vscode
+coverage
+botasaurus-master.zip
+botasaurus-master/
