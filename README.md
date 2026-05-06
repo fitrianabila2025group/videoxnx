@@ -4,6 +4,11 @@ A production-ready, full-stack content aggregator that mirrors a WordPress-style
 into your own database, exposes a REST API, and serves a modern Next.js frontend with an
 admin panel.
 
+> **Deploying to Railway?** This is a monorepo. Create **3 separate services** from this
+> same GitHub repo and set **Settings → Source → Root Directory** to `backend`, `fetcher`,
+> and `frontend` respectively. Each folder ships its own `Dockerfile` + `railway.json`.
+> See the [Railway section](#railway) for the full env-var list.
+
 > **Important — Legal & Safety**
 >
 > - Use this software **only** with explicit written permission from the source website operator.
