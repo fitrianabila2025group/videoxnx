@@ -7,7 +7,9 @@ const items = [
   { href: '/latest',     label: 'Terbaru',  icon: ClockIcon },
   { href: '/trending',   label: 'Hot',      icon: FlameIcon },
   { href: '/categories', label: 'Kategori', icon: GridIcon },
-  { href: '/search',     label: 'Cari',     icon: SearchIcon },
+  // The "Cari" entry opens the drawer with the search input focused — much
+  // friendlier on mobile than navigating to a page that has no input on it.
+  { href: '#search',     label: 'Cari',     icon: SearchIcon, action: 'search' as const },
 ];
 
 export default function BottomNav() {
@@ -20,21 +22,40 @@ export default function BottomNav() {
     >
       <ul className="grid grid-cols-5 h-14">
         {items.map((it) => {
-          const active =
-            it.href === '/' ? path === '/' : path === it.href || path.startsWith(it.href + '/');
+          const isLink = !it.action;
+          const active = isLink && (it.href === '/'
+            ? path === '/'
+            : path === it.href || path.startsWith(it.href + '/'));
           const Icon = it.icon;
+          const cls = `flex flex-col items-center justify-center h-full gap-0.5 text-[11px] transition-colors w-full ${
+            active ? 'text-brand' : 'text-sub hover:text-ink active:text-ink'
+          }`;
           return (
-            <li key={it.href}>
-              <Link
-                href={it.href}
-                aria-current={active ? 'page' : undefined}
-                className={`flex flex-col items-center justify-center h-full gap-0.5 text-[11px] transition-colors ${
-                  active ? 'text-brand' : 'text-sub hover:text-ink active:text-ink'
-                }`}
-              >
-                <Icon className="w-5 h-5" />
-                <span>{it.label}</span>
-              </Link>
+            <li key={it.label}>
+              {isLink ? (
+                <Link
+                  href={it.href}
+                  aria-current={active ? 'page' : undefined}
+                  className={cls}
+                >
+                  <Icon className="w-5 h-5" />
+                  <span>{it.label}</span>
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  aria-label="Buka pencarian"
+                  className={cls}
+                  onClick={() => {
+                    window.dispatchEvent(
+                      new CustomEvent('vxnx:open-menu', { detail: { focusSearch: true } })
+                    );
+                  }}
+                >
+                  <Icon className="w-5 h-5" />
+                  <span>{it.label}</span>
+                </button>
+              )}
             </li>
           );
         })}
