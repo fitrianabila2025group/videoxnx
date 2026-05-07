@@ -45,7 +45,7 @@ func Load() *Config {
 		SourceBaseURL:        strings.TrimRight(getEnv("SOURCE_BASE_URL", "https://indoxvx.cam"), "/"),
 		ScraperEnabled:       getEnvBool("SCRAPER_ENABLED", true),
 		ScraperIntervalMin:   getEnvInt("SCRAPER_INTERVAL_MINUTES", 60),
-		ScraperMaxPages:      getEnvInt("SCRAPER_MAX_PAGES", 20),
+		ScraperMaxPages:      getEnvInt("SCRAPER_MAX_PAGES", 200),
 		ScraperRateLimitMs:   getEnvInt("SCRAPER_RATE_LIMIT_MS", 1500),
 		ScraperRespectRobots: getEnvBool("SCRAPER_RESPECT_ROBOTS", true),
 		ScraperUserAgent:     getEnv("SCRAPER_USER_AGENT", "VideoxnxAggregatorBot/1.0"),

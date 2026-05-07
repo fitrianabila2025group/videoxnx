@@ -73,6 +73,7 @@ ENV NODE_ENV=production \
     APP_ENV=production \
     SCRAPER_ENABLED=true \
     SCRAPER_FETCHER_URL="" \
+    SCRAPER_MAX_PAGES=200 \
     AGE_GATE_ENABLED=true
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \

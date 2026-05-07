@@ -42,7 +42,7 @@ type wpPost struct {
 // FetchViaWPRest tries to fetch posts from a WordPress REST endpoint.
 // Returns (inputs, ok). ok=false means the API was unavailable / blocked / not WP.
 func (s *Scraper) FetchViaWPRest(ctx context.Context, page int) ([]services.PostInput, bool) {
-	endpoint := fmt.Sprintf("%s/wp-json/wp/v2/posts?_embed=1&per_page=20&page=%d", s.cfg.SourceBaseURL, page)
+	endpoint := fmt.Sprintf("%s/wp-json/wp/v2/posts?_embed=1&per_page=100&page=%d", s.cfg.SourceBaseURL, page)
 	resp, err := s.http.Get(ctx, endpoint)
 	if err != nil {
 		return nil, false

@@ -60,6 +60,7 @@ func (s *Scraper) RunOnce(ctx context.Context) (saved int, failed int, err error
 
 	// Try WP REST API first
 	usedAPI := false
+	consecutiveAllDup := 0
 	for page := 1; page <= s.cfg.ScraperMaxPages; page++ {
 		select {
 		case <-ctx.Done():
@@ -77,6 +78,7 @@ func (s *Scraper) RunOnce(ctx context.Context) (saved int, failed int, err error
 		if len(inputs) == 0 {
 			break
 		}
+		pageNew := 0
 		for _, in := range inputs {
 			// WP REST often strips iframes from content.rendered; fetch the post page
 			// to recover the embed if missing.
@@ -90,12 +92,31 @@ func (s *Scraper) RunOnce(ctx context.Context) (saved int, failed int, err error
 					}
 				}
 			}
-			if _, _, e := services.UpsertPost(s.db, in); e != nil {
+			_, created, e := services.UpsertPost(s.db, in)
+			if e != nil {
 				failed++
 				log.Printf("scraper upsert failed: %v", e)
 			} else {
 				saved++
+				if created {
+					pageNew++
+				}
 			}
+		}
+		log.Printf("scraper WP REST page=%d items=%d new=%d total_saved=%d", page, len(inputs), pageNew, saved)
+
+		// Stop early once we've seen 3 consecutive pages with zero NEW posts
+		// (steady-state: the source has nothing new to give us). Full backfill
+		// happens automatically because every page that still introduces new
+		// posts resets this counter.
+		if pageNew == 0 {
+			consecutiveAllDup++
+			if consecutiveAllDup >= 3 {
+				log.Printf("scraper: 3 consecutive pages without new posts, stopping at page=%d", page)
+				break
+			}
+		} else {
+			consecutiveAllDup = 0
 		}
 	}
 
@@ -105,6 +126,7 @@ func (s *Scraper) RunOnce(ctx context.Context) (saved int, failed int, err error
 
 	// Fallback HTML scraping
 	pageURL := s.cfg.SourceBaseURL
+	consecutiveAllDup = 0
 	for page := 1; page <= s.cfg.ScraperMaxPages; page++ {
 		select {
 		case <-ctx.Done():
@@ -117,6 +139,7 @@ func (s *Scraper) RunOnce(ctx context.Context) (saved int, failed int, err error
 			log.Printf("list page failed (%s): %v", pageURL, e)
 			break
 		}
+		pageNew := 0
 		for _, link := range links {
 			in, e := s.FetchPostHTML(ctx, link)
 			if e != nil {
@@ -124,12 +147,26 @@ func (s *Scraper) RunOnce(ctx context.Context) (saved int, failed int, err error
 				log.Printf("post fetch failed (%s): %v", link, e)
 				continue
 			}
-			if _, _, e := services.UpsertPost(s.db, *in); e != nil {
+			_, created, e := services.UpsertPost(s.db, *in)
+			if e != nil {
 				failed++
 				log.Printf("upsert failed: %v", e)
 			} else {
 				saved++
+				if created {
+					pageNew++
+				}
 			}
+		}
+		log.Printf("scraper HTML page=%d items=%d new=%d total_saved=%d", page, len(links), pageNew, saved)
+		if pageNew == 0 {
+			consecutiveAllDup++
+			if consecutiveAllDup >= 3 {
+				log.Printf("scraper: 3 consecutive pages without new posts, stopping at page=%d", page)
+				break
+			}
+		} else {
+			consecutiveAllDup = 0
 		}
 		// pagination: WordPress style /page/N/
 		pageURL = fmt.Sprintf("%s/page/%d/", s.cfg.SourceBaseURL, page+1)
@@ -158,7 +195,7 @@ func (s *Scheduler) Start() {
 	_, err := s.sch.NewJob(
 		gocron.DurationJob(interval),
 		gocron.NewTask(func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Hour)
 			defer cancel()
 			if saved, failed, err := s.s.RunOnce(ctx); err != nil {
 				log.Printf("scheduled scrape error: %v", err)
