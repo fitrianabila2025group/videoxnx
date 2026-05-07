@@ -4,10 +4,39 @@ A production-ready, full-stack content aggregator that mirrors a WordPress-style
 into your own database, exposes a REST API, and serves a modern Next.js frontend with an
 admin panel.
 
-> **Deploying to Railway?** This is a monorepo. Create **3 separate services** from this
-> same GitHub repo and set **Settings → Source → Root Directory** to `backend`, `fetcher`,
-> and `frontend` respectively. Each folder ships its own `Dockerfile` + `railway.json`.
-> See the [Railway section](#railway) for the full env-var list.
+> **One-click deploy.** The repo ships a single root `Dockerfile` that bundles the Go
+> backend + Next.js frontend + SQLite into one image listening on port **8080**. No
+> Postgres, no Redis, no extra services. Use it on Railway, Render, Fly, a $5 VPS,
+> or DockerHub. The legacy split-service setup (`backend/`, `frontend/`, `fetcher/`)
+> is still available for advanced users.
+
+## 🚀 Deploy in 60 seconds
+
+### Railway (one service)
+1. New Project → Deploy from GitHub → pick this repo. **Do not** set a Root Directory.
+2. Railway auto-detects the root `Dockerfile`. Add a **Volume** mounted at `/data`.
+3. Set the env vars listed in [`.env.example`](.env.example) (at minimum: `JWT_SECRET`,
+   `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `APP_URL`).
+4. Attach your custom domain to this service. Done — `https://yourdomain.com/` shows the
+   site, `/api/*` is the API, `/healthz` returns `{"ok":true}`.
+
+### Docker / DockerHub
+```bash
+docker build -t youruser/videoxnx .
+docker run -d --name videoxnx -p 8080:8080 -v videoxnx-data:/data \
+  -e JWT_SECRET=$(openssl rand -hex 32) \
+  -e ADMIN_EMAIL=admin@example.com \
+  -e ADMIN_PASSWORD='ChangeMe!' \
+  -e APP_URL=https://yourdomain.com \
+  youruser/videoxnx
+docker push youruser/videoxnx
+```
+
+### Local dev
+```bash
+docker compose up --build
+# open http://localhost:8080
+```
 
 > **Important — Legal & Safety**
 >
@@ -25,12 +54,11 @@ admin panel.
 
 | Layer       | Tech |
 |------------ |------|
-| Backend     | Go 1.22 + Fiber v2 + GORM + PostgreSQL |
+| Backend     | Go 1.22 + Fiber v2 + GORM + **SQLite** (Postgres optional) |
 | Scraper     | goquery + WP REST API + `robotstxt` + cron via gocron |
 | Auth        | JWT (HS256) + bcrypt + HTTP-only cookies |
-| Frontend    | Next.js 14 (App Router) + Tailwind CSS |
-| Cache       | Redis (optional) |
-| Container   | Docker / docker-compose |
+| Frontend    | Next.js 14 (App Router, standalone output) + Tailwind CSS |
+| Container   | Single Docker image, port 8080 |
 
 ---
 

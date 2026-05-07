@@ -1,6 +1,12 @@
 // Server-side API helper. Calls the Go backend.
-// Configure NEXT_PUBLIC_API_URL (e.g. http://backend:8080).
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+// In the all-in-one container the backend listens on the same host:port as the
+// public URL, so an empty NEXT_PUBLIC_API_URL means "same origin" — but during
+// SSR the Node process must reach it via 127.0.0.1:8080. Configure with
+// INTERNAL_API_URL (server-only) or NEXT_PUBLIC_API_URL (client+server).
+const API =
+  process.env.INTERNAL_API_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  'http://127.0.0.1:8080';
 
 export async function api<T = any>(
   path: string,

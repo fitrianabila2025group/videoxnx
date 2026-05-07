@@ -14,6 +14,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
 	fmw "github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/gofiber/fiber/v2/middleware/proxy"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"gorm.io/gorm"
 )
@@ -108,6 +109,21 @@ func NewApp(db *gorm.DB, cfg *config.Config) *fiber.App {
 	app.Get("/sitemap.xml", func(c *fiber.Ctx) error {
 		return sitemap(c, db, cfg)
 	})
+
+	// Frontend proxy: when FRONTEND_URL is set, forward all unmatched
+	// requests to the Next.js process (used by the all-in-one Docker image
+	// where Next.js runs on 127.0.0.1:3000 alongside this server).
+	if cfg.FrontendURL != "" {
+		target := strings.TrimRight(cfg.FrontendURL, "/")
+		app.Use(func(c *fiber.Ctx) error {
+			url := target + c.OriginalURL()
+			if err := proxy.Do(c, url); err != nil {
+				return fiber.NewError(fiber.StatusBadGateway, "frontend unavailable")
+			}
+			c.Response().Header.Del(fiber.HeaderServer)
+			return nil
+		})
+	}
 
 	return app
 }

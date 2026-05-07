@@ -29,6 +29,7 @@ type Config struct {
 	MetaTitle            string
 	MetaDescription      string
 	CORSAllowedOrigins   []string
+	FrontendURL          string
 }
 
 func Load() *Config {
@@ -55,6 +56,7 @@ func Load() *Config {
 		MetaTitle:            getEnv("META_TITLE", "VideoXNX"),
 		MetaDescription:      getEnv("META_DESCRIPTION", ""),
 		CORSAllowedOrigins:   splitCSV(getEnv("CORS_ALLOWED_ORIGINS", "*")),
+		FrontendURL:          getEnv("FRONTEND_URL", ""),
 	}
 }
 

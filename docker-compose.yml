@@ -1,5 +1,32 @@
 version: "3.9"
 
+# Local one-container deployment (mirrors the production image used on
+# Railway / DockerHub). Single port 8080. SQLite stored in ./data.
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      APP_URL: http://localhost:8080
+      CORS_ALLOWED_ORIGINS: "*"
+      JWT_SECRET: "change-me-to-a-long-random-string"
+      ADMIN_EMAIL: "admin@example.com"
+      ADMIN_PASSWORD: "change-me-please"
+      SOURCE_BASE_URL: "https://indoxvx.cam"
+      SCRAPER_ENABLED: "true"
+      SCRAPER_FETCHER_URL: ""    # leave empty to disable the optional fetcher
+      DMCA_EMAIL: "dmca@example.com"
+      SITE_NAME: "VideoXNX"
+      META_TITLE: "VideoXNX"
+      META_DESCRIPTION: "Aggregated video posts mirror"
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
+version: "3.9"
+
 services:
   postgres:
     image: postgres:16-alpine
