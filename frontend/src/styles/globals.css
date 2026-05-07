@@ -32,6 +32,22 @@ img, video {
 a { color: inherit; text-decoration: none; }
 button { -webkit-user-select: none; user-select: none; touch-action: manipulation; }
 
+/* Strip the browser-drawn magnifier / clear button from <input type="search">
+   so our own icon (rendered as an absolutely-positioned <svg>) is not
+   doubled-up on Safari/Chrome desktop. */
+input[type="search"] {
+  -webkit-appearance: none;
+  appearance: none;
+}
+input[type="search"]::-webkit-search-decoration,
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-webkit-search-results-button,
+input[type="search"]::-webkit-search-results-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}
+
 /* Reusable components */
 .card        { @apply bg-panel rounded-xl overflow-hidden border border-white/5 hover:border-brand/40 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-brand/10; }
 .chip        { @apply inline-flex items-center px-2.5 py-1 rounded-full bg-muted text-sub text-xs hover:text-ink hover:bg-brand/20 transition-colors whitespace-nowrap; }
