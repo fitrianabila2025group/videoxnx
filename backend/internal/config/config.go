@@ -9,6 +9,7 @@ import (
 type Config struct {
 	AppEnv               string
 	AppURL               string
+	SiteURL              string
 	Port                 string
 	DatabaseURL          string
 	RedisURL             string
@@ -35,7 +36,8 @@ type Config struct {
 func Load() *Config {
 	return &Config{
 		AppEnv:               getEnv("APP_ENV", "development"),
-		AppURL:               getEnv("APP_URL", "http://localhost:8080"),
+		AppURL:               strings.TrimRight(getEnv("APP_URL", "http://localhost:8080"), "/"),
+		SiteURL:              strings.TrimRight(getEnv("SITE_URL", ""), "/"),
 		Port:                 getEnv("PORT", "8080"),
 		DatabaseURL:          getEnv("DATABASE_URL", ""),
 		RedisURL:             getEnv("REDIS_URL", ""),

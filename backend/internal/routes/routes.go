@@ -124,10 +124,14 @@ func NewApp(db *gorm.DB, cfg *config.Config) *fiber.App {
 	priv.Get("/settings", adm.ListSettings)
 	priv.Put("/settings", adm.UpdateSettings)
 
-	// SEO
+	// SEO. URLs are derived from the incoming request so the same binary
+	// works behind any domain (Railway, Render, custom, ...). cfg.SiteURL
+	// (env SITE_URL) is used as a fallback for cases where the request has
+	// no Host header (extremely rare).
 	app.Get("/robots.txt", func(c *fiber.Ctx) error {
+		base := publicBaseURL(c, cfg)
 		c.Type("txt")
-		return c.SendString("User-agent: *\nAllow: /\nSitemap: " + cfg.AppURL + "/sitemap.xml\n")
+		return c.SendString("User-agent: *\nAllow: /\nSitemap: " + base + "/sitemap.xml\n")
 	})
 	app.Get("/sitemap.xml", func(c *fiber.Ctx) error {
 		return sitemap(c, db, cfg)
@@ -171,9 +175,11 @@ func contains(list []string, v string) bool {
 }
 
 type sitemapURL struct {
-	XMLName xml.Name `xml:"url"`
-	Loc     string   `xml:"loc"`
-	LastMod string   `xml:"lastmod,omitempty"`
+	XMLName    xml.Name `xml:"url"`
+	Loc        string   `xml:"loc"`
+	LastMod    string   `xml:"lastmod,omitempty"`
+	ChangeFreq string   `xml:"changefreq,omitempty"`
+	Priority   string   `xml:"priority,omitempty"`
 }
 type sitemapSet struct {
 	XMLName xml.Name     `xml:"urlset"`
@@ -181,24 +187,117 @@ type sitemapSet struct {
 	URLs    []sitemapURL `xml:"url"`
 }
 
+// publicBaseURL returns the canonical, public base URL (scheme + host) for the
+// current request. It honours X-Forwarded-* headers set by the platform proxy
+// (Railway, Render, Fly, Cloudflare, ...). Falls back to cfg.SiteURL, then
+// cfg.AppURL. The result never has a trailing slash.
+func publicBaseURL(c *fiber.Ctx, cfg *config.Config) string {
+	host := strings.TrimSpace(c.Get("X-Forwarded-Host"))
+	if host == "" {
+		host = strings.TrimSpace(c.Hostname())
+	}
+	if host != "" && !isLocalHost(host) {
+		proto := strings.TrimSpace(c.Get("X-Forwarded-Proto"))
+		if proto == "" {
+			proto = c.Protocol()
+		}
+		if proto == "" {
+			proto = "https"
+		}
+		return strings.TrimRight(proto+"://"+host, "/")
+	}
+	if cfg.SiteURL != "" {
+		return strings.TrimRight(cfg.SiteURL, "/")
+	}
+	if host != "" {
+		proto := c.Protocol()
+		if proto == "" {
+			proto = "http"
+		}
+		return strings.TrimRight(proto+"://"+host, "/")
+	}
+	return strings.TrimRight(cfg.AppURL, "/")
+}
+
+func isLocalHost(host string) bool {
+	h := strings.ToLower(host)
+	if i := strings.IndexByte(h, ':'); i >= 0 {
+		h = h[:i]
+	}
+	return h == "localhost" || h == "127.0.0.1" || h == "0.0.0.0" || h == "::1"
+}
+
 func sitemap(c *fiber.Ctx, db *gorm.DB, cfg *config.Config) error {
+	base := publicBaseURL(c, cfg)
+
 	var posts []models.Post
 	db.Where("status = ? AND safety_status <> ?", "published", "blocked").
-		Order("COALESCE(published_at, scraped_at) DESC").Limit(2000).Find(&posts)
+		Order("COALESCE(published_at, scraped_at) DESC").Limit(5000).Find(&posts)
+
 	urls := []sitemapURL{
-		{Loc: cfg.AppURL + "/"},
-		{Loc: cfg.AppURL + "/latest"},
-		{Loc: cfg.AppURL + "/trending"},
-		{Loc: cfg.AppURL + "/dmca"},
+		{Loc: base + "/", ChangeFreq: "hourly", Priority: "1.0"},
+		{Loc: base + "/latest", ChangeFreq: "hourly", Priority: "0.9"},
+		{Loc: base + "/trending", ChangeFreq: "daily", Priority: "0.8"},
+		{Loc: base + "/categories", ChangeFreq: "weekly", Priority: "0.6"},
+		{Loc: base + "/tags", ChangeFreq: "weekly", Priority: "0.5"},
+		{Loc: base + "/dmca", ChangeFreq: "yearly", Priority: "0.2"},
+		{Loc: base + "/contact", ChangeFreq: "yearly", Priority: "0.2"},
+		{Loc: base + "/disclaimer", ChangeFreq: "yearly", Priority: "0.2"},
+		{Loc: base + "/privacy", ChangeFreq: "yearly", Priority: "0.2"},
+		{Loc: base + "/age-verification", ChangeFreq: "yearly", Priority: "0.2"},
 	}
+
+	// Categories
+	var cats []models.Category
+	db.Order("name ASC").Limit(2000).Find(&cats)
+	for _, ct := range cats {
+		if ct.Slug == "" {
+			continue
+		}
+		urls = append(urls, sitemapURL{
+			Loc:        fmt.Sprintf("%s/category/%s", base, ct.Slug),
+			ChangeFreq: "daily",
+			Priority:   "0.6",
+		})
+	}
+
+	// Tags
+	var tags []models.Tag
+	db.Order("name ASC").Limit(5000).Find(&tags)
+	for _, tg := range tags {
+		if tg.Slug == "" {
+			continue
+		}
+		urls = append(urls, sitemapURL{
+			Loc:        fmt.Sprintf("%s/tag/%s", base, tg.Slug),
+			ChangeFreq: "weekly",
+			Priority:   "0.4",
+		})
+	}
+
+	// Posts
 	for _, p := range posts {
-		u := sitemapURL{Loc: fmt.Sprintf("%s/post/%s", cfg.AppURL, p.Slug)}
-		if p.PublishedAt != nil {
-			u.LastMod = p.PublishedAt.Format("2006-01-02")
+		if p.Slug == "" {
+			continue
+		}
+		u := sitemapURL{
+			Loc:        fmt.Sprintf("%s/post/%s", base, p.Slug),
+			ChangeFreq: "weekly",
+			Priority:   "0.7",
+		}
+		switch {
+		case p.PublishedAt != nil:
+			u.LastMod = p.PublishedAt.UTC().Format("2006-01-02")
+		case !p.ScrapedAt.IsZero():
+			u.LastMod = p.ScrapedAt.UTC().Format("2006-01-02")
 		}
 		urls = append(urls, u)
 	}
-	out, err := xml.MarshalIndent(sitemapSet{Xmlns: "http://www.sitemaps.org/schemas/sitemap/0.9", URLs: urls}, "", "  ")
+
+	out, err := xml.MarshalIndent(sitemapSet{
+		Xmlns: "http://www.sitemaps.org/schemas/sitemap/0.9",
+		URLs:  urls,
+	}, "", "  ")
 	if err != nil {
 		return err
 	}
