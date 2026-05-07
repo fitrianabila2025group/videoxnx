@@ -26,6 +26,12 @@ func NewApp(db *gorm.DB, cfg *config.Config) *fiber.App {
 		ErrorHandler:          errorHandler,
 		DisableStartupMessage: true,
 		ReadTimeout:           30 * time.Second,
+		// Trust the platform proxy (Railway, Render, Fly, Nginx, ...) so that
+		// Ctx.IP() returns the real client IP. Without this every visitor
+		// appears as the same edge IP and the rate limiter throttles the
+		// whole site after ~120 requests/min.
+		ProxyHeader:             fiber.HeaderXForwardedFor,
+		EnableTrustedProxyCheck: false,
 	})
 
 	app.Use(recover.New())
@@ -37,10 +43,6 @@ func NewApp(db *gorm.DB, cfg *config.Config) *fiber.App {
 		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
 		AllowCredentials: contains(cfg.CORSAllowedOrigins, "*") == false,
 	}))
-	app.Use(limiter.New(limiter.Config{
-		Max:        120,
-		Expiration: 1 * time.Minute,
-	}))
 
 	pub := &controllers.Public{DB: db}
 	adm := &controllers.Admin{DB: db, Cfg: cfg}
@@ -48,6 +50,27 @@ func NewApp(db *gorm.DB, cfg *config.Config) *fiber.App {
 	app.Get("/healthz", func(c *fiber.Ctx) error { return c.JSON(fiber.Map{"ok": true}) })
 
 	api := app.Group("/api")
+
+	// Per-IP rate limit, scoped to the public API only. The Next.js frontend
+	// (served via the proxy below) and admin endpoints are NOT rate-limited
+	// here so that legitimate page loads (which trigger many /_next/* sub
+	// requests) and the admin login form keep working.
+	api.Use(limiter.New(limiter.Config{
+		Max:        300,
+		Expiration: 1 * time.Minute,
+		KeyGenerator: func(c *fiber.Ctx) string {
+			return c.IP()
+		},
+		Next: func(c *fiber.Ctx) bool {
+			// Skip rate limiting for admin endpoints (login, dashboard, ...).
+			return strings.HasPrefix(c.Path(), "/api/admin")
+		},
+		LimitReached: func(c *fiber.Ctx) error {
+			return c.Status(fiber.StatusTooManyRequests).
+				JSON(fiber.Map{"error": "rate limit exceeded, please slow down"})
+		},
+	}))
+
 	// Public
 	api.Get("/posts", pub.ListPosts)
 	api.Get("/posts/:slug", pub.GetPost)

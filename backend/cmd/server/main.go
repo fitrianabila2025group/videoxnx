@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"log"
 	"os"
 	"os/signal"
@@ -16,10 +18,24 @@ import (
 	"github.com/joho/godotenv"
 )
 
+func randomSecret(n int) string {
+	b := make([]byte, n)
+	if _, err := rand.Read(b); err != nil {
+		return "fallback-" + time.Now().Format("20060102150405")
+	}
+	return hex.EncodeToString(b)
+}
+
 func main() {
 	_ = godotenv.Load()
 
 	cfg := config.Load()
+
+	if cfg.JWTSecret == "" || cfg.JWTSecret == "insecure-dev-secret" {
+		log.Println("WARN: JWT_SECRET is not set — generating a random one for this boot. " +
+			"Sessions will be invalidated every restart. Set JWT_SECRET in env to a long random string.")
+		cfg.JWTSecret = randomSecret(48)
+	}
 
 	db, err := database.Connect(cfg.DatabaseURL)
 	if err != nil {
