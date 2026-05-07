@@ -4,6 +4,7 @@ import Link from 'next/link';
 import AgeGate from '@/components/AgeGate';
 import SearchBar from '@/components/SearchBar';
 import MobileNav from '@/components/MobileNav';
+import BottomNav from '@/components/BottomNav';
 import { getSiteUrl } from '@/lib/site-url';
 
 const SITE_NAME = 'VideoXNX';
@@ -81,21 +82,34 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-screen flex flex-col">
         <AgeGate />
-        <header className="sticky top-0 z-30 bg-bg/95 backdrop-blur border-b border-white/5 relative">
-          <div className="max-w-7xl mx-auto px-3 sm:px-4 py-2 sm:py-3 flex items-center gap-2 sm:gap-4">
-            <Link href="/" className="text-lg sm:text-xl font-bold text-brand tracking-tight whitespace-nowrap">
+        <header className="sticky top-0 z-30 bg-bg/90 backdrop-blur-md border-b border-white/5">
+          <div className="container-x py-2.5 sm:py-3 flex items-center gap-3">
+            <Link
+              href="/"
+              className="text-lg sm:text-xl font-extrabold text-brand tracking-tight whitespace-nowrap shrink-0"
+            >
               Video<span className="text-ink">XNX</span>
             </Link>
-            <nav className="hidden md:flex gap-3 text-sm text-sub">
-              <Link href="/latest" className="hover:text-ink">Terbaru</Link>
-              <Link href="/trending" className="hover:text-ink">Trending</Link>
-              <Link href="/categories" className="hover:text-ink">Kategori</Link>
-              <Link href="/tags" className="hover:text-ink">Tag</Link>
+            <nav className="hidden md:flex items-center gap-1 text-sm">
+              {[
+                { href: '/latest', label: 'Terbaru' },
+                { href: '/trending', label: 'Trending' },
+                { href: '/categories', label: 'Kategori' },
+                { href: '/tags', label: 'Tag' },
+              ].map((l) => (
+                <Link
+                  key={l.href}
+                  href={l.href}
+                  className="px-3 py-1.5 rounded-lg text-sub hover:text-ink hover:bg-white/5 transition-colors"
+                >
+                  {l.label}
+                </Link>
+              ))}
             </nav>
-            <div className="ml-auto hidden sm:block w-full max-w-xs md:max-w-sm">
+            <div className="hidden sm:block flex-1 max-w-md ml-auto">
               <SearchBar />
             </div>
-            <div className="ml-auto sm:ml-2">
+            <div className="ml-auto sm:ml-0">
               <MobileNav />
             </div>
           </div>
@@ -103,8 +117,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
         <main className="flex-1">{children}</main>
 
-        <footer className="border-t border-white/5 mt-12">
-          <div className="max-w-7xl mx-auto px-4 py-8 text-sm text-sub flex flex-wrap gap-4 justify-between">
+        <footer className="border-t border-white/5 mt-12 hidden md:block">
+          <div className="container-x py-8 text-sm text-sub flex flex-wrap gap-4 justify-between">
             <div>
               <div className="text-ink font-semibold">VideoXNX</div>
               <p className="max-w-md">
@@ -112,14 +126,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </p>
             </div>
             <div className="flex gap-4 flex-wrap">
-              <Link href="/dmca">DMCA</Link>
-              <Link href="/contact">Kontak</Link>
-              <Link href="/disclaimer">Disclaimer</Link>
-              <Link href="/privacy">Privasi</Link>
-              <Link href="/age-verification">18+</Link>
+              <Link href="/dmca" className="hover:text-ink">DMCA</Link>
+              <Link href="/contact" className="hover:text-ink">Kontak</Link>
+              <Link href="/disclaimer" className="hover:text-ink">Disclaimer</Link>
+              <Link href="/privacy" className="hover:text-ink">Privasi</Link>
+              <Link href="/age-verification" className="hover:text-ink">18+</Link>
             </div>
           </div>
         </footer>
+
+        <BottomNav />
       </body>
     </html>
   );
