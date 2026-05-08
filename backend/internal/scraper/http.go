@@ -3,10 +3,12 @@ package scraper
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"io"
 	"math/rand"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -35,8 +37,25 @@ type HTTPClient struct {
 }
 
 func NewHTTPClient(rateLimitMs int, defaultUA string, respectRobots bool) *HTTPClient {
+	// Force HTTP/1.1 to avoid the net/http HTTP/2 HPACK race
+	// (golang/go#56019: "panic: id (X) <= evictCount (Y)") which can crash
+	// the whole process under bursts of concurrent requests to a single host.
+	tr := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   15 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		ForceAttemptHTTP2:     false,
+		TLSNextProto:          map[string]func(string, *tls.Conn) http.RoundTripper{},
+		MaxIdleConns:          100,
+		MaxIdleConnsPerHost:   16,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   15 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
 	return &HTTPClient{
-		cli:           &http.Client{Timeout: 120 * time.Second},
+		cli:           &http.Client{Timeout: 120 * time.Second, Transport: tr},
 		rateLimit:     time.Duration(rateLimitMs) * time.Millisecond,
 		defaultUA:     defaultUA,
 		respectRobots: respectRobots,

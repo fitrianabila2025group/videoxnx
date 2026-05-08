@@ -2,7 +2,9 @@ package controllers
 
 import (
 	"context"
+	"crypto/tls"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -17,8 +19,32 @@ import (
 //
 // SECURITY: only proxies http/https schemes. Limits response size and follows
 // up to 3 redirects via the default http.Client behavior.
+//
+// NOTE: We force HTTP/1.1 (TLSNextProto = empty map, ForceAttemptHTTP2=false)
+// to avoid a long-standing race in net/http's HTTP/2 HPACK encoder that panics
+// with "id (X) <= evictCount (Y)" under bursts of concurrent requests to a
+// single host (golang/go#56019). The panic happens in a goroutine spawned by
+// http2ClientConn.RoundTrip and therefore can't be recovered in the Fiber
+// handler — it crashes the entire process. Sticking to HTTP/1.1 is safe here
+// because we're only fetching small upstream images.
 var imgClient = &http.Client{
 	Timeout: 20 * time.Second,
+	Transport: &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   10 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		ForceAttemptHTTP2:     false,
+		TLSNextProto:          map[string]func(string, *tls.Conn) http.RoundTripper{},
+		MaxIdleConns:          200,
+		MaxIdleConnsPerHost:   32,
+		MaxConnsPerHost:       64,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		ResponseHeaderTimeout: 15 * time.Second,
+	},
 }
 
 const maxImageBytes = 8 << 20 // 8 MiB
