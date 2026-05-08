@@ -133,7 +133,7 @@ export default function MobileNav() {
                   inputMode="search"
                   enterKeyHint="search"
                   aria-label="Cari video"
-                  className="input pl-9 pr-3"
+                  className="input pl-11 pr-3"
                   placeholder="Cari video bokep..."
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
