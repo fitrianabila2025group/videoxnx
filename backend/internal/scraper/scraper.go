@@ -80,9 +80,27 @@ func (s *Scraper) RunOnce(ctx context.Context) (saved int, failed int, err error
 		}
 		pageNew := 0
 		for _, in := range inputs {
-			// WP REST often strips iframes from content.rendered; fetch the post page
-			// to recover the embed if missing.
-			if in.VideoEmbedURL == "" && in.SourceURL != "" {
+			// Skip the expensive per-post HTML fetch if we already have this
+			// post saved with an embed URL. This avoids hammering the source
+			// (and the fetcher) on every scheduled run, which was the main
+			// cause of OOM / "Application failed to respond" crashes.
+			var existing models.Post
+			haveExisting := false
+			if in.SourceURL != "" {
+				if err := s.db.Select("id", "video_embed_url", "thumbnail_url").
+					Where("source_url = ?", in.SourceURL).First(&existing).Error; err == nil {
+					haveExisting = true
+					if in.VideoEmbedURL == "" {
+						in.VideoEmbedURL = existing.VideoEmbedURL
+					}
+					if in.ThumbnailURL == "" {
+						in.ThumbnailURL = existing.ThumbnailURL
+					}
+				}
+			}
+			// WP REST often strips iframes from content.rendered; only fetch the
+			// post page when we still don't have an embed.
+			if in.VideoEmbedURL == "" && in.SourceURL != "" && !haveExisting {
 				if html, err := s.FetchPostHTML(ctx, in.SourceURL); err == nil {
 					if html.VideoEmbedURL != "" {
 						in.VideoEmbedURL = html.VideoEmbedURL

@@ -1,9 +1,11 @@
 package database
 
 import (
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/fitrianabila2025group/videoxnx/backend/internal/models"
 	"github.com/glebarez/sqlite"
@@ -21,7 +23,18 @@ import (
 // SQLite is pure-Go (no CGO) so it works in scratch/alpine images and Railway
 // without any add-on database. Use Postgres in production for higher concurrency.
 func Connect(dsn string) (*gorm.DB, error) {
-	cfg := &gorm.Config{Logger: logger.Default.LogMode(logger.Warn)}
+	// Silence the noisy "record not found" warnings emitted on every upsert
+	// lookup, but keep real SQL errors visible.
+	gormLogger := logger.New(
+		log.New(os.Stdout, "\r\n", log.LstdFlags),
+		logger.Config{
+			SlowThreshold:             time.Second,
+			LogLevel:                  logger.Error,
+			IgnoreRecordNotFoundError: true,
+			Colorful:                  false,
+		},
+	)
+	cfg := &gorm.Config{Logger: gormLogger}
 
 	switch {
 	case strings.HasPrefix(dsn, "postgres://"), strings.HasPrefix(dsn, "postgresql://"):
